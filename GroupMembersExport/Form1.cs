@@ -63,7 +63,7 @@ namespace GroupMembersExport
                         SaveFileDialog saveDialog = new SaveFileDialog();
                         saveDialog.DefaultExt = "txt";
                         saveDialog.Filter = "文本文档|*.txt";
-                        saveDialog.FileName = "";
+                        saveDialog.FileName = "userqq";
                         if (saveDialog.ShowDialog() == DialogResult.OK)
                         {
                             string filePath = saveDialog.FileName;
