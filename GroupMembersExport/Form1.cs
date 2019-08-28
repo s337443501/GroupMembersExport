@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace GroupMembersExport
@@ -30,8 +31,8 @@ namespace GroupMembersExport
             FrmLoginQQ frmLoginQQ = new FrmLoginQQ(this);
             frmLoginQQ.ShowDialog();
         }
-        public string bkn = "", cookies = "";
 
+        public string bkn = "", cookies = "";
         private void button2_Click(object sender, EventArgs e)
         {
             if (radioButton1.Checked)
@@ -129,63 +130,124 @@ namespace GroupMembersExport
             MessageBox.Show(mess);
         }
 
+        private void toolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (dataGridView1.RowCount > 0)
+                {
+                    int count = dataGridView1.SelectedRows.Count;
+                    string groupid = "";
+                    for (int i = 0; i < count; i++)
+                    {
+                        //string id = dataGridView1.SelectedRows[i].Cells["id"].Value.ToString();
+                        //string groupname = dataGridView1.SelectedRows[i].Cells["groupname"].Value.ToString();
+                        groupid += dataGridView1.SelectedRows[i].Cells["groupid"].Value.ToString() + "|";
+                    }
+                    Task.Factory.StartNew(() => ShowDT(groupid));
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
+                throw;
+            }
+        }
+
         private void dataGridView1_DoubleClick(object sender, EventArgs e)
         {
             try
             {
                 if (dataGridView1.RowCount > 0)
                 {
-                    string id = dataGridView1.SelectedRows[0].Cells["id"].Value.ToString();
-                    string groupname = dataGridView1.SelectedRows[0].Cells["groupname"].Value.ToString();
+                    //string id = dataGridView1.SelectedRows[0].Cells["id"].Value.ToString();
+                    //string groupname = dataGridView1.SelectedRows[0].Cells["groupname"].Value.ToString();
                     string groupid = dataGridView1.SelectedRows[0].Cells["groupid"].Value.ToString();
-                    Dictionary<string, string> levelName = new Dictionary<string, string>();
-                    var url = "https://qinfo.clt.qq.com/cgi-bin/qun_info/get_members_info_v1?friends=1&name=1&src=qinfo_v3&gc=" + groupid + "&bkn=" + bkn;
-                    var html = CommonHelper.GetHtml(url, cookies);
-                    var jobj = JObject.Parse(html);
-                    var jo = JObject.Parse(jobj["levelname"].ToString());
-                    foreach (JProperty jProperty in jo.Properties())
-                    {
-                        //Console.WriteLine(jProperty.Name + "：" + jProperty.Value);
-                        levelName.Add(jProperty.Name.Replace("lvln", ""), jProperty.Value.ToString());
-                    }
+                    Task.Factory.StartNew(() => ShowDT(groupid + "|"));
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
+            }
+        }
 
-                    DataTable dataTable = new DataTable();
-                    dataTable.Columns.Add("id", typeof(int));
-                    dataTable.Columns.Add("uin", typeof(string)); //QQ号码
-                    dataTable.Columns.Add("nk", typeof(string)); //QQ昵称
-                    dataTable.Columns.Add("ll_lp", typeof(string)); //等级_积分
-                    dataTable.Columns.Add("jt", typeof(string)); //入群时间
-                    dataTable.Columns.Add("lst", typeof(string)); //最后发言时间
-                    var jo1 = JObject.Parse(jobj["members"].ToString());
-                    int uid = 0;
-                    foreach (JProperty jProperty in jo1.Properties())
+        private delegate void UpdateDataGridView(DataTable dt);
+        DataTable dataTable;
+        private void UpdateGV(DataTable dt)
+        {
+            if (dataGridView1.InvokeRequired)
+            {
+                this.BeginInvoke(new UpdateDataGridView(UpdateGV), new object[] { dt });
+            }
+            else
+            {
+                dataGridView2.DataSource = dt;
+                dataGridView2.Refresh();
+            }
+        }
+
+        public void ShowDT(string groupid)
+        {
+            dataTable = new DataTable();
+            dataTable.Columns.Add("id", typeof(int));
+            dataTable.Columns.Add("uin", typeof(string)); //QQ号码
+            dataTable.Columns.Add("nk", typeof(string)); //QQ昵称
+            dataTable.Columns.Add("ll_lp", typeof(string)); //等级_积分
+            dataTable.Columns.Add("jt", typeof(string)); //入群时间
+            dataTable.Columns.Add("lst", typeof(string)); //最后发言时间
+            string[] groupidArray = groupid.Split('|');
+            for (int i = 0; i < groupidArray.Length - 1; i++)
+            {
+                SetDataTable(groupidArray[i]);
+            }
+
+            UpdateGV(dataTable);
+        }
+
+        private void SetDataTable(string groupid)
+        {
+            try
+            {
+                Dictionary<string, string> levelName = new Dictionary<string, string>();
+                var url = "https://qinfo.clt.qq.com/cgi-bin/qun_info/get_members_info_v1?friends=1&name=1&src=qinfo_v3&gc=" + groupid + "&bkn=" + bkn;
+                var html = CommonHelper.GetHtml(url, cookies);
+                var jobj = JObject.Parse(html);
+                var jo = JObject.Parse(jobj["levelname"].ToString());
+                foreach (JProperty jProperty in jo.Properties())
+                {
+                    //Console.WriteLine(jProperty.Name + "：" + jProperty.Value);
+                    levelName.Add(jProperty.Name.Replace("lvln", ""), jProperty.Value.ToString());
+                }
+
+                var jo1 = JObject.Parse(jobj["members"].ToString());
+                int uid = 0;
+                foreach (JProperty jProperty in jo1.Properties())
+                {
+                    string uin = jProperty.Name;
+                    var j = JObject.Parse(jProperty.Value.ToString());
+                    string nk = j["nk"].ToString();
+                    string ll_lp = "";
+                    string ll = j["ll"].ToString();
+                    string lp = j["lp"].ToString();
+                    string jt = j["jt"].ToString();
+                    string lst = j["lst"].ToString();
+                    nk = System.Web.HttpUtility.HtmlDecode(nk);
+                    if (!string.IsNullOrEmpty(jt)) { jt = CommonHelper.NumToTime(jt); }
+                    if (!string.IsNullOrEmpty(lst)) { lst = CommonHelper.NumToTime(lst); }
+                    if (!string.IsNullOrEmpty(ll))
                     {
-                        string uin = jProperty.Name;
-                        var j = JObject.Parse(jProperty.Value.ToString());
-                        string nk = j["nk"].ToString();
-                        string ll_lp = "";
-                        string ll = j["ll"].ToString();
-                        string lp = j["lp"].ToString();
-                        string jt = j["jt"].ToString();
-                        string lst = j["lst"].ToString();
-                        nk = System.Web.HttpUtility.HtmlDecode(nk);
-                        if (!string.IsNullOrEmpty(jt)) { jt = CommonHelper.NumToTime(jt); }
-                        if (!string.IsNullOrEmpty(lst)) { lst = CommonHelper.NumToTime(lst); }
-                        if (!string.IsNullOrEmpty(ll))
+                        foreach (var lev in levelName)
                         {
-                            foreach (var lev in levelName)
+                            if (ll == lev.Key)
                             {
-                                if (ll == lev.Key)
-                                {
-                                    ll = lev.Value;
-                                }
+                                ll = lev.Value;
                             }
                         }
-                        ll_lp = ll + "(" + lp + ")";
-                        uid++;
-                        dataTable.Rows.Add(uid, uin, nk, ll_lp, jt, lst);
                     }
-                    dataGridView2.DataSource = dataTable;
+                    ll_lp = ll + "(" + lp + ")";
+                    uid++;
+                    dataTable.Rows.Add(uid, uin, nk, ll_lp, jt, lst);
                 }
             }
             catch (Exception ex)
