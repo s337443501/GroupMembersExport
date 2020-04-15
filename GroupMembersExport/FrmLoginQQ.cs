@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using System.Windows.Forms;
 using Newtonsoft.Json.Linq;
@@ -42,21 +42,41 @@ namespace GroupMembersExport
                         f1.bkn = bkn;
                         f1.cookies = cookies;
 
-                        url = "http://qun.qzone.qq.com/cgi-bin/get_group_list?groupcount=4&count=4&callbackFun=_GetGroupPortal&uin=" + uin + "&g_tk=" + bkn;
+                        url = "https://qun.qq.com/cgi-bin/qun_mgr/get_group_list?bkn=" + bkn;
                         html = CommonHelper.GetHtml(url, cookies);
-                        html = html.Replace("_GetGroupPortal_Callback(", "").Replace(");", "");
                         jobj = JObject.Parse(html);
-                        var jarr = JArray.Parse(jobj["data"]["group"].ToString());
+
                         DataTable dataTable = new DataTable();
                         dataTable.Columns.Add("id", typeof(int));
                         dataTable.Columns.Add("groupname", typeof(string));
                         dataTable.Columns.Add("groupid", typeof(string));
+                        var jarr = JArray.Parse(jobj["join"].ToString());
+                        int count = 1;
                         for (var i = 0; i < jarr.Count; i++)
                         {
                             var j = JObject.Parse(jarr[i].ToString());
-                            string groupname = j["groupname"].ToString();
-                            string groupid = j["groupid"].ToString();
-                            dataTable.Rows.Add(i + 1, groupname, groupid);
+                            string groupname = j["gn"].ToString();
+                            string groupid = j["gc"].ToString();
+                            dataTable.Rows.Add(count, groupname, groupid);
+                            count++;
+                        }
+                        jarr = JArray.Parse(jobj["manage"].ToString());
+                        for (var i = 0; i < jarr.Count; i++)
+                        {
+                            var j = JObject.Parse(jarr[i].ToString());
+                            string groupname = j["gn"].ToString();
+                            string groupid = j["gc"].ToString();
+                            dataTable.Rows.Add(count, groupname, groupid);
+                            count++;
+                        }
+                        jarr = JArray.Parse(jobj["create"].ToString());
+                        for (var i = 0; i < jarr.Count; i++)
+                        {
+                            var j = JObject.Parse(jarr[i].ToString());
+                            string groupname = j["gn"].ToString();
+                            string groupid = j["gc"].ToString();
+                            dataTable.Rows.Add(count, groupname, groupid);
+                            count++;
                         }
                         f1.dataGridView1.DataSource = dataTable;
 
